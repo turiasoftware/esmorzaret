@@ -684,7 +684,19 @@ function renderLog() {
         <div class="v-ops">${ops.map(o => { const p = S.gente.get(o.autorId); const sc = opScore(o); return `<div class="v-op">${avatar(p, 36)}<p><b>${esc(p?.nombre || 'Alguien')}</b>${sc !== null ? `<span class="chip">${fmt(sc)}</span> ` : ''}${esc(o.texto || '')}</p></div>`; }).join('') || '<p class="muted">Sin opiniones aún.</p>'}</div>
         <div class="row-actions" data-write><button class="btn small" type="button" data-op-new="${esc(v.id)}">Añadir opinión</button><button class="btn small" type="button" data-visit-edit="${esc(v.id)}">Editar visita</button></div>
       </div></article>`;
-  }).join('');
+  }).join('') + sueltasLog();
+}
+function sueltasLog() {
+  const sueltas = [...S.opiniones.values()].filter(o => !o.visitaId || !S.visitas.has(o.visitaId));
+  const porBar = new Map(); sueltas.forEach(o => { if (!porBar.has(o.barId)) porBar.set(o.barId, []); porBar.get(o.barId).push(o); });
+  return [...porBar].map(([bid, ops]) => { const bar = S.bares.get(bid) || { id: bid, nombre: 'Bar sin ficha' };
+    return `<article class="visit">
+      <div class="v-date"><span class="d">?</span><span class="m">sin fecha</span><span class="y">hace tiempo</span></div>
+      <div class="v-main">
+        <h3><button type="button" class="linkish" data-open-bar="${esc(bar.id)}">${esc(bar.nombre)}</button>${ast(bar)}</h3>
+        <p class="v-meta">Una vez, hace tiempo; fecha indeterminada.</p>
+        <div class="v-ops">${ops.map(o => { const p = S.gente.get(o.autorId); const sc = opScore(o); return `<div class="v-op">${avatar(p, 36)}<p><b>${esc(p?.nombre || 'Alguien')}</b>${sc !== null ? `<span class="chip">${fmt(sc)}</span> ` : ''}${esc(o.texto || '')}</p></div>`; }).join('')}</div>
+      </div></article>`; }).join('');
 }
 function renderCrew() {
   const box = $('#crew');
