@@ -305,6 +305,13 @@ table.rank { width: 100%; border-collapse: collapse; font-size: 14.5px; min-widt
 .person { background: var(--card); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: 24px 16px 20px; display: grid; justify-items: center; text-align: center; gap: 8px; }
 .person h3 { font-size: 21px; font-weight: 700; letter-spacing: -.022em; margin-top: 6px; }
 .person p { font-size: 13.5px; color: var(--ink-2); }
+.person-open { all: unset; cursor: pointer; display: grid; justify-items: center; gap: 8px; border-radius: 16px; padding: 4px; }
+.person-open:hover h3 { color: var(--link); }
+.person-open:focus-visible { outline: 2.5px solid var(--action); outline-offset: 2px; }
+.p-ops { display: grid; gap: 12px; }
+.p-op { background: var(--fill-2); border-radius: 16px; padding: 14px 16px; }
+.dlg-in h4.p-bar { font-family: var(--f-display); text-transform: none; color: var(--ink); font-size: 19px; font-weight: 700; letter-spacing: -.02em; margin-top: 2px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.p-op .chip { background: var(--card); }
 .person.add { background: transparent; box-shadow: none; border: 1.5px dashed var(--rule); align-content: center; min-height: 200px; }
 
 /* Diálogos */
@@ -705,7 +712,7 @@ function renderCrew() {
     const ops = [...S.opiniones.values()].filter(o => o.autorId === p.id);
     const sc = ops.map(opScore).filter(v => v !== null);
     const media = sc.length ? sc.reduce((a, x) => a + x, 0) / sc.length : null;
-    return `<article class="person">${avatar(p, 96)}<h3>${esc(p.nombre)}</h3><p>${ops.length} ${ops.length === 1 ? 'opinión' : 'opiniones'}${media !== null ? ` · pone de media ${fmt(media)}` : ''}</p>
+    return `<article class="person"><button type="button" class="person-open" data-open-person="${esc(p.id)}" aria-label="Ver las opiniones de ${esc(p.nombre)}">${avatar(p, 96)}<h3>${esc(p.nombre)}</h3><p>${ops.length} ${ops.length === 1 ? 'opinión' : 'opiniones'}${media !== null ? ` · pone de media ${fmt(media)}` : ''}</p></button>
       <button class="btn small" type="button" data-write data-person-edit="${esc(p.id)}">Editar</button></article>`;
   }).join('') + `<article class="person add" data-write><p>¿Se apunta alguien más?</p><button class="btn small" type="button" data-person-new>Añadir a la peña</button></article>`;
 }
@@ -945,6 +952,28 @@ function armDanger(btn, label, action) {
 }
 
 /* ficha de bar */
+function openPerson(id) {
+  const p = S.gente.get(id); if (!p) return;
+  const ops = [...S.opiniones.values()].filter(o => o.autorId === id).sort(byFechaDesc);
+  const sc = ops.map(opScore).filter(v => v !== null);
+  const media = sc.length ? sc.reduce((a, x) => a + x, 0) / sc.length : null;
+  const lista = ops.map(o => { const b = S.bares.get(o.barId) || { id: o.barId, nombre: 'Bar sin ficha' }; const s = opScore(o);
+    const cuando = o.fecha ? fechaLarga(o.fecha) : (o.cuando ? o.cuando[0].toUpperCase() + o.cuando.slice(1) : 'Sin fecha');
+    return `<div class="p-op"><p class="eyebrow">${esc(cuando)}</p>
+      <h4 class="p-bar"><button type="button" class="linkish" data-open-bar="${esc(b.id)}">${esc(b.nombre)}</button>${ast(b)}${s !== null ? ` <span class="chip">${fmt(s)}</span>` : ''}</h4>
+      <p class="quote">${esc(o.texto || 'Sin comentario.')}</p>
+      ${opChips(o)}</div>`; }).join('');
+  openDlg(`
+    <div class="bd-top">${avatar(p, 88)}<div><p class="eyebrow">La peña</p><h3 class="dlg-title">${esc(p.nombre)}</h3>
+      <p class="muted">${ops.length} ${ops.length === 1 ? 'opinión' : 'opiniones'}${media !== null ? ` · pone de media ${fmt(media)}` : ''}</p></div></div>
+    ${lista ? `<div class="p-ops">${lista}</div>` : '<p class="muted">Todavía no ha opinado de ningún bar.</p>'}
+    <div class="dlg-actions"><div class="r" data-write><button class="btn small" type="button" data-person-edit="${esc(p.id)}">Editar</button></div><button class="btn small" type="button" data-close>Cerrar</button></div>`, { kind: 'person', id });
+}
+function opChips(o) {
+  const cs = CRIT.filter(c => num(o.notas?.[c.k]) !== null).map(c => `<span class="chip"><b>${esc(c.l || c.k)}</b> ${fmt(num(o.notas[c.k]))}</span>`);
+  if (num(o.notaFinal) !== null) cs.push(`<span class="chip"><b>Nota final</b> ${fmt(num(o.notaFinal))}</span>`);
+  return cs.length ? `<div class="chips">${cs.join('')}</div>` : '';
+}
 function openBar(id, refresh) {
   const b = S.bares.get(id); if (!b) { if (refresh) closeDlg(); return; }
   S.sel = id; if (!refresh) renderPins();
@@ -1365,6 +1394,7 @@ document.addEventListener('click', e => {
   if (ds.sort) { const k = ds.sort; S.sort = { k, d: S.sort.k === k ? -S.sort.d : (k === 'nombre' || k === 'completo' || k === 'medio' || k === 'cremaet' ? 1 : -1) }; renderRank(); return; }
   if (ds.photo) { openDlg(`<img class="ph-big" src="${esc(ds.photo)}" alt="Foto del almuerzo"><div class="dlg-actions"><span></span><button class="btn small" type="button" data-close>Cerrar</button></div>`, { kind: 'photo' }); return; }
   if (ds.openBar) { openBar(ds.openBar); return; }
+  if (ds.openPerson) { openPerson(ds.openPerson); return; }
   if ('close' in ds) { closeDlg(); return; }
   if ('newBar' in ds) { openBarForm(null); return; }
   if ('newVisit' in ds) { openVisitForm(null, ds.newVisit || ''); return; }
